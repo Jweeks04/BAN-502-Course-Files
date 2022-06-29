@@ -1,0 +1,197 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+## Project Phase 1  
+## Author: Jennifer Weeks  
+## BAN 502  
+
+
+Libraries  
+```{r, message=FALSE}
+library(tidyverse) #tidyverse set of packages and functions
+library(tidymodels)
+library(glmnet) #for Lasso, ridge, and elastic net models 
+library(GGally) #create ggcorr and ggpairs plots
+library(MASS) #access to forward and backward selection algorithms
+library(lmtest) #for the dw test
+library(splines) #for nonlinear fitting
+library(esquisse)
+library(skimr)
+```
+
+## Read-In Data  
+```{r, message=FALSE}
+ames = read_csv("ames_student.csv")
+```
+## Data Structure  
+```{r, results= "hide"}
+str(ames) #all variables numeric
+summary(ames) #no missingness
+skim(ames)
+```
+
+## Data Visual Exploration  
+```{r}
+#esquisser(ames)
+```
+
+Findings: The following variables seem to have a visual relationship with Above_Median:
+Paved_Drive, Garage_Cars, Fireplaces, Kitchen_Qual, Bedroom_AbvGr, Gr_Liv_Area, Full_Bath, TotRms_AbvGrd  
+
+```{r, echo=FALSE}
+ames2 = ames %>% dplyr::select( "Gr_Liv_Area", "Paved_Drive", "Fireplaces", "Full_Bath", "TotRms_AbvGrd", "Garage_Cars","Bedroom_AbvGr", "Kitchen_Qual", "Above_Median")
+```
+
+## Review Data Structure, No Missingness    
+```{r, results= "hide"}
+str(ames2) #all variables numeric
+summary(ames2) #no missingness
+skim(ames2)
+```
+## Change Character Variables    
+```{r, message=FALSE}
+ames2 = ames2 %>% mutate(Above_Median = as_factor(Above_Median))%>% mutate(Kitchen_Qual = as_factor(Kitchen_Qual)) %>% mutate(Paved_Drive = as_factor(Paved_Drive))
+```
+
+##Variable Correlation    
+```{r}
+ggpairs(ames2)
+```
+
+## Histograms, Stacked Bar Charts & Tables   
+
+**Fireplaces** 
+```{r}
+ggplot(ames2, aes(x=Fireplaces)) + geom_histogram()
+```
+
+Fireplaces range from 1-4 in total   
+
+```{r}
+ggplot(ames2,aes(x=Fireplaces, fill = Above_Median)) + geom_bar() + theme_bw()
+```
+
+```{r}
+t1 = table(ames2$Above_Median, ames2$Fireplaces)
+prop.table(t1, margin = 2)
+```
+
+Having at least 1 Fireplace seems to increase odds of selling Above_Median.   
+
+**Bedrooms Above Ground**  
+
+```{r}
+ggplot(ames2, aes(x=Bedroom_AbvGr)) + geom_histogram()
+```
+
+Bedrooms above ground range from 1-6 in total  
+
+```{r}
+ggplot(ames2,aes(x=Bedroom_AbvGr, fill = Above_Median)) + geom_bar() + theme_bw()
+```
+```{r}
+t2 = table(ames2$Above_Median, ames2$Bedroom_AbvGr)
+prop.table(t2, margin = 2)
+```
+
+Mixed variation in findings with 3-5 bedrooms having the best odds of selling Above_Median.   
+
+**Full Baths**  
+
+```{r}
+ggplot(ames2, aes(x=Full_Bath)) + geom_histogram()
+```
+
+Full Bathrooms ranges from  1- 4 in total  
+
+```{r}
+ggplot(ames2,aes(x=Full_Bath, fill = Above_Median)) + geom_bar() + theme_bw()
+```
+
+
+```{r}
+t3 = table(ames2$Above_Median, ames2$Full_Bath)
+prop.table(t3, margin = 2)
+```
+
+Having 2 or more Full Baths increases odds of selling Above_Median  
+
+**Ground Living Area**  
+```{r}
+ggplot(ames2, aes(x=Gr_Liv_Area)) + geom_histogram()
+```
+
+There are a few outliers once you get over 3000 sqft for Gr_Liv_Area  
+
+```{r}
+ames2 = ames2 %>% filter(Gr_Liv_Area < 3500)
+ggplot(ames2, aes(x=Gr_Liv_Area)) + geom_histogram()
+```
+
+```{r}
+ggplot(ames2,aes(x=Above_Median,y=Gr_Liv_Area)) + geom_boxplot()  + theme_bw()
+```
+
+There seems to be correlation with homes having a larger Ground Living Area selling Above_Median.   
+
+**Kitchen Quality**  
+```{r}
+ggplot(ames2,aes(x=Kitchen_Qual, fill = Above_Median)) + geom_bar() + theme_bw()
+
+```
+```{r}
+t4 = table(ames2$Above_Median, ames2$Kitchen_Qual)
+prop.table(t4, margin = 2)
+```
+
+Kitchens that are Excellent and Good have show correlation with selling Above_Median.   
+
+**Total Rooms Above Ground**  
+```{r}
+ggplot(ames2, aes(x=TotRms_AbvGrd)) + geom_histogram()
+```
+
+Few outliers over 10 rooms but overall fairly normal distribution  
+
+```{r}
+ggplot(ames2,aes(x=TotRms_AbvGrd, fill = Above_Median)) + geom_bar() + theme_bw()
+```
+
+```{r}
+t5 = table(ames2$Above_Median, ames2$TotRms_AbvGrd)
+prop.table(t5, margin = 2)
+```
+
+With some variation it seems the more total rooms above ground the higher likelihood of selling Above_Median.  
+
+**Garage Cars**  
+```{r}
+ggplot(ames2, aes(x=Garage_Cars)) + geom_histogram()
+```
+
+Range from 0 - 5   
+
+```{r}
+ggplot(ames2,aes(x=Garage_Cars, fill = Above_Median)) + geom_bar() + theme_bw()
+```
+
+```{r}
+t6 = table(ames2$Above_Median, ames2$Garage_Cars)
+prop.table(t6, margin = 2)
+```
+
+Garages with 2-4 car spaces seem to have strong indication of selling Above_Median.  
+
+**Paved Drive**  
+```{r}
+ggplot(ames2,aes(x=Paved_Drive, fill = Above_Median)) + geom_bar() + theme_bw()
+```
+```{r}
+t7 = table(ames2$Above_Median, ames2$Paved_Drive)
+prop.table(t7, margin = 2)
+```
+
+Having a Paved Driveway is a slight indicator of selling Above_Median  
